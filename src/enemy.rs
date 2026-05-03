@@ -1,25 +1,36 @@
 use std::time::Duration;
 
-use bevy::{color::palettes::tailwind::BLUE_400, prelude::*, time::common_conditions::on_timer};
-use cgdc_gj::{CANVAS_SIZE, ENEMY_HEALTH, PLAYER_SIZE};
+use bevy::{
+    color::palettes::tailwind::BLUE_400,
+    math::bounding::{Aabb2d, RayCast2d},
+    prelude::*,
+    time::common_conditions::on_timer,
+};
+use cgdc_gj::{
+    CANVAS_SIZE, ENEMY_EYESIGHT, ENEMY_HEALTH, ENEMY_HITBOX, ENEMY_TARGET_SPEED, PLAYER_SIZE,
+};
 use rand::Rng;
 
 pub struct EnemyPlugin;
 
 use crate::{
-    movement::{Acceleration, AccelerationDirection, Direction, Health, Speed},
+    collision::Collider,
+    movement::{Acceleration, AccelerationDirection, CanMove, Direction, Health, Hitbox, Speed},
     player::Player,
 };
 
 impl Plugin for EnemyPlugin {
     fn build(&self, app: &mut App) {
         app
-            // add_systems(Startup, spawn)
+            // .add_systems(Startup, spawn)
             // .add_systems(
             //     FixedUpdate,
             //     spawn.run_if(on_timer(Duration::from_millis(100000))),
             // )
-            .add_systems(FixedUpdate, calculate_enemy_direction);
+            .add_systems(
+                FixedUpdate,
+                (calculate_enemy_direction, handle_state_change, handle_idle),
+            );
     }
 }
 
@@ -30,37 +41,39 @@ impl Plugin for EnemyPlugin {
     Acceleration,
     AccelerationDirection,
     Health(ENEMY_HEALTH),
-    EnemyState
+    EnemyState,
+    Hitbox(ENEMY_HITBOX),
+    CanMove
 )]
 pub struct Enemy;
 
 #[derive(Component)]
 pub enum EnemyState {
-    IDLE,
-    TARGET,
+    Idle,
+    Target,
 }
 
 impl Default for EnemyState {
     fn default() -> Self {
-        EnemyState::IDLE
+        EnemyState::Idle
     }
 }
 
-fn spawn(mut commands: Commands) {
-    let mut rng = rand::rng();
-    let rand_x = rng.random_range(-CANVAS_SIZE.x / 2.0..CANVAS_SIZE.x / 2.0);
-    let rand_y = rng.random_range(-CANVAS_SIZE.y / 2.0..CANVAS_SIZE.y / 2.0);
-
-    commands.spawn((
-        Enemy,
-        Sprite {
-            custom_size: Some(Vec2::splat(PLAYER_SIZE)),
-            color: Color::Srgba(BLUE_400),
-            ..default()
-        },
-        Transform::from_xyz(rand_x, rand_y, 1.0),
-    ));
-}
+// fn spawn(mut commands: Commands) {
+//     let mut rng = rand::rng();
+//     let rand_x = rng.random_range(-CANVAS_SIZE.x / 2.0..CANVAS_SIZE.x / 2.0);
+//     let rand_y = rng.random_range(-CANVAS_SIZE.y / 2.0..CANVAS_SIZE.y / 2.0);
+//
+//     commands.spawn((
+//         Enemy,
+//         Sprite {
+//             custom_size: Some(Vec2::splat(PLAYER_SIZE)),
+//             color: Color::Srgba(BLUE_400),
+//             ..default()
+//         },
+//         Transform::from_xyz(0.0, 0.0, 1.0),
+//     ));
+// }
 
 fn calculate_enemy_direction(
     mut enemies: Query<(&mut Direction, &Transform, &EnemyState), With<Enemy>>,
@@ -68,7 +81,7 @@ fn calculate_enemy_direction(
 ) {
     for (mut direction, transform, enemy_state) in &mut enemies {
         match enemy_state {
-            EnemyState::IDLE => {
+            EnemyState::Idle => {
                 let mut rng = rand::rng();
                 let rand_x = rng.random::<i16>();
                 let rand_y = rng.random::<i16>();
@@ -77,7 +90,7 @@ fn calculate_enemy_direction(
 
                 direction.0 = variance;
             }
-            EnemyState::TARGET => {
+            EnemyState::Target => {
                 const RAND_WEIGHT: f32 = 0.4;
                 let x = player.translation.x - transform.translation.x;
                 let y = player.translation.y - transform.translation.y;
@@ -94,13 +107,75 @@ fn calculate_enemy_direction(
     }
 }
 
-fn handle_state(mut enemies: Query<&mut EnemyState, (With<EnemyState>, With<Enemy>)>) {
-    for mut enemy_state in &mut enemies {
-        match *enemy_state {
-            EnemyState::IDLE => {
-                //check if enemy is near player
+fn handle_state_change(
+    mut enemies: Query<(&EnemyState, &mut Speed), (Changed<EnemyState>, With<Enemy>)>,
+) {
+    for (state, mut speed) in &mut enemies {
+        match *state {
+            EnemyState::Idle => {}
+            EnemyState::Target => {
+                speed.0 = ENEMY_TARGET_SPEED;
             }
-            EnemyState::TARGET => {}
+        }
+    }
+}
+
+fn handle_idle(
+    mut enemies: Query<(Entity, &mut EnemyState), (With<EnemyState>, With<Enemy>)>,
+    player: Single<(Entity, &Hitbox), With<Player>>,
+    colliders: Query<&Collider>,
+    transform_helper: TransformHelper,
+) {
+    let (player_entity, player_hitbox) = player.into_inner();
+
+    let player_translation = transform_helper
+        .compute_global_transform(player_entity)
+        .unwrap()
+        .translation();
+
+    let player_collider = Aabb2d::new(player_translation.xy(), player_hitbox.0 / 2.0);
+
+    for (entity, mut enemy_state) in &mut enemies {
+        match *enemy_state {
+            EnemyState::Idle => {
+                let enemy_translation = transform_helper
+                    .compute_global_transform(entity)
+                    .unwrap()
+                    .translation();
+
+                let x = player_translation.x - enemy_translation.x;
+                let y = player_translation.y - enemy_translation.y;
+
+                let raycast = RayCast2d::new(
+                    enemy_translation.xy(),
+                    Dir2::from_xy(x, y).unwrap(),
+                    ENEMY_EYESIGHT,
+                );
+
+                let player_dist = raycast.aabb_intersection_at(&player_collider);
+
+                let collider_dist = colliders
+                    .iter()
+                    .filter_map(|collider| {
+                        let collider = Aabb2d::new(collider.center, collider.size / 2.0);
+                        raycast.aabb_intersection_at(&collider)
+                    })
+                    .min_by(|a, b| a.partial_cmp(b).unwrap());
+
+                if let Some(player_dist) = player_dist {
+                    match collider_dist {
+                        Some(collider_dist) => {
+                            if collider_dist > player_dist {
+                                *enemy_state = EnemyState::Target;
+                            }
+                        }
+                        None => {
+                            *enemy_state = EnemyState::Target;
+                        }
+                    }
+                }
+            }
+            EnemyState::Target => {}
         }
     }
 }

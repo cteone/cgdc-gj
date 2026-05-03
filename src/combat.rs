@@ -8,7 +8,9 @@ use cgdc_gj::{ATTACK_ACCELERATION, ATTACK_SIZE, ENEMY_SIZE, HIT_COOLDOWN_SECONDS
 
 use crate::{
     enemy::Enemy,
-    movement::{Acceleration, AccelerationDirection, Health},
+    movement::{Acceleration, AccelerationDirection, Health, Hitbox},
+    player::Player,
+    rooms::{Room, RoomChange, RoomId, SpawnLocation},
     schedule::InGameSet,
 };
 
@@ -45,7 +47,7 @@ impl Plugin for CombatPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             FixedUpdate,
-            (handle_attacks, attack_enemies, enemy_hit)
+            (handle_attacks, attack_enemies, enemy_hit, player_hit)
                 .chain()
                 .in_set(InGameSet::CollisionDetection),
         );
@@ -175,6 +177,43 @@ fn enemy_hit(
         }
 
         is_hit.cooldown.tick(time.delta());
+    }
+}
+
+fn player_hit(
+    room: Single<(&RoomId, &SpawnLocation), With<Room>>,
+    player: Single<(Entity, &Hitbox), With<Player>>,
+    enemies: Query<(Entity, &Hitbox), With<Enemy>>,
+    mut commands: Commands,
+    transform_helper: TransformHelper,
+) {
+    let (player_entity, player_hitbox) = player.into_inner();
+
+    let player_transform = transform_helper
+        .compute_global_transform(player_entity)
+        .unwrap()
+        .translation();
+
+    let player_hitbox = Aabb2d::new(player_transform.xy(), player_hitbox.0 / 2.0);
+
+    for (enemy_entity, enemy_hitbox) in &enemies {
+        let enemy_transform = transform_helper
+            .compute_global_transform(enemy_entity)
+            .unwrap()
+            .translation();
+
+        let enemy_hitbox = Aabb2d::new(enemy_transform.xy(), enemy_hitbox.0 / 2.0);
+
+        if enemy_hitbox.intersects(&player_hitbox) {
+            //more hit stuff
+            let (target_id, spawn_location) = room.into_inner();
+
+            commands.trigger(RoomChange {
+                spawn_location: spawn_location.0,
+                target_id: target_id.0,
+            });
+            break;
+        }
     }
 }
 

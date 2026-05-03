@@ -18,13 +18,6 @@ fn spawn_camera(mut commands: Commands) {
             scale: 0.8,
             ..OrthographicProjection::default_2d()
         }),
-        // Projection::Orthographic(OrthographicProjection {
-        //     scaling_mode: ScalingMode::Fixed {
-        //         height: CANVAS_SIZE.x,
-        //         width: CANVAS_SIZE.y,
-        //     },
-        //     ..OrthographicProjection::default_2d()
-        // }),
         Light2d {
             ambient_light: AmbientLight2d {
                 brightness: 0.0,

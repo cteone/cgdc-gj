@@ -8,7 +8,8 @@ use bevy::{
 };
 use bevy_light_2d::light::PointLight2d;
 use cgdc_gj::{
-    ATTACK_DISTANCE, ATTACK_DURATION_SECONDS, ATTACK_SIZE, LIGHT_RADIUS, PLAYER_SIZE, PLAYER_SPEED,
+    ATTACK_DISTANCE, ATTACK_DURATION_SECONDS, ATTACK_SIZE, CANVAS_SIZE, LIGHT_RADIUS,
+    PLAYER_HITBOX, PLAYER_SIZE, PLAYER_SPEED,
 };
 use leafwing_input_manager::prelude::{ActionState, InputMap};
 
@@ -16,7 +17,8 @@ use crate::{
     animate::FlipSprite,
     combat::{AttackTimer, SlashAttack},
     input::{Action, movement_input_map},
-    movement::{Direction, Health, Speed},
+    movement::{CanMove, Direction, Health, Hitbox, Speed},
+    rooms::{Room, RoomChange, RoomDirection, RoomId, RoomLayouts},
     schedule::InGameSet,
 };
 
@@ -32,7 +34,7 @@ impl Plugin for PlayerPlugin {
 }
 
 #[derive(Component)]
-#[require(Speed, Direction, Health)]
+#[require(Speed, Direction, Health, CanMove, Hitbox(PLAYER_HITBOX))]
 pub struct Player;
 
 impl Player {
