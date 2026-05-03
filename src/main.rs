@@ -45,8 +45,8 @@ use collision::CollisionPlugin;
 mod audio;
 use audio::AudioPlugin;
 
-mod animation;
-use animation::AnimationPlugin;
+// mod animation;
+// use animation::AnimationPlugin;
 
 fn main() -> AppExit {
     App::new()
