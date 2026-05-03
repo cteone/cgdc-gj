@@ -1,16 +1,16 @@
 use bevy::{
-    camera::primitives::Aabb,
     color::palettes::tailwind::RED_300,
     math::bounding::{Aabb2d, BoundingVolume, IntersectsVolume},
     prelude::*,
 };
+use bevy_seedling::sample::SamplePlayer;
 use cgdc_gj::{ATTACK_ACCELERATION, ATTACK_SIZE, ENEMY_SIZE, HIT_COOLDOWN_SECONDS};
 
 use crate::{
     enemy::Enemy,
     movement::{Acceleration, AccelerationDirection, Health, Hitbox},
     player::Player,
-    rooms::{Room, RoomChange, RoomId, SpawnLocation},
+    rooms::{Endgame, Room, RoomChange, RoomId, SpawnLocation},
     schedule::InGameSet,
 };
 
@@ -64,8 +64,15 @@ fn handle_attacks(
     mut commands: Commands,
     mut query: Query<(Entity, &mut AttackTimer), With<Attack>>,
     time: Res<Time>,
+    asset_server: Res<AssetServer>,
 ) {
     for (entity, mut attack_timer) in &mut query {
+        if attack_timer.timer.elapsed_secs() == 0.0 {
+            commands
+                .entity(entity)
+                .with_child(SamplePlayer::new(asset_server.load("player_attack.wav")));
+        }
+
         attack_timer.timer.tick(time.delta());
 
         if attack_timer.timer.is_finished() {
@@ -186,6 +193,7 @@ fn player_hit(
     enemies: Query<(Entity, &Hitbox), With<Enemy>>,
     mut commands: Commands,
     transform_helper: TransformHelper,
+    endgame: Res<Endgame>,
 ) {
     let (player_entity, player_hitbox) = player.into_inner();
 
@@ -205,13 +213,16 @@ fn player_hit(
         let enemy_hitbox = Aabb2d::new(enemy_transform.xy(), enemy_hitbox.0 / 2.0);
 
         if enemy_hitbox.intersects(&player_hitbox) {
-            //more hit stuff
-            let (target_id, spawn_location) = room.into_inner();
+            if endgame.0 {
+                commands.entity(player_entity).despawn();
+            } else {
+                let (target_id, spawn_location) = room.into_inner();
 
-            commands.trigger(RoomChange {
-                spawn_location: spawn_location.0,
-                target_id: target_id.0,
-            });
+                commands.trigger(RoomChange {
+                    spawn_location: spawn_location.0,
+                    target_id: target_id.0,
+                });
+            }
             break;
         }
     }

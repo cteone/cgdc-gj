@@ -1,15 +1,8 @@
-use bevy::{
-    color::palettes::{
-        css::WHITE,
-        tailwind::{ORANGE_300, RED_300},
-    },
-    image::ImageLoaderSettings,
-    prelude::*,
-};
+use bevy::{color::palettes::tailwind::ORANGE_300, prelude::*};
 use bevy_light_2d::light::PointLight2d;
 use cgdc_gj::{
-    ATTACK_DISTANCE, ATTACK_DURATION_SECONDS, ATTACK_SIZE, CANVAS_SIZE, LIGHT_RADIUS,
-    PLAYER_HITBOX, PLAYER_SIZE, PLAYER_SPEED,
+    ATTACK_DISTANCE, ATTACK_DURATION_SECONDS, ATTACK_SIZE, PLAYER_HITBOX, PLAYER_LIGHT_RADIUS,
+    PLAYER_SIZE, PLAYER_SPEED,
 };
 use leafwing_input_manager::prelude::{ActionState, InputMap};
 
@@ -17,8 +10,7 @@ use crate::{
     animate::FlipSprite,
     combat::{AttackTimer, SlashAttack},
     input::{Action, movement_input_map},
-    movement::{CanMove, Direction, Health, Hitbox, Speed},
-    rooms::{Room, RoomChange, RoomDirection, RoomId, RoomLayouts},
+    movement::{CanMove, Direction, Health, Hitbox, LookingTowards, Speed},
     schedule::InGameSet,
 };
 
@@ -34,7 +26,14 @@ impl Plugin for PlayerPlugin {
 }
 
 #[derive(Component)]
-#[require(Speed, Direction, Health, CanMove, Hitbox(PLAYER_HITBOX))]
+#[require(
+    Speed,
+    Direction,
+    Health,
+    CanMove,
+    Hitbox(PLAYER_HITBOX),
+    LookingTowards
+)]
 pub struct Player;
 
 impl Player {
@@ -47,7 +46,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         Player,
         Speed(PLAYER_SPEED),
-        FlipSprite,
+        FlipSprite(false),
         Sprite {
             image: asset_server.load("player.png"),
             custom_size: Some(Vec2::splat(PLAYER_SIZE)),
@@ -57,7 +56,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
         Player::input_map(),
         children![
             (PointLight2d {
-                radius: LIGHT_RADIUS,
+                radius: PLAYER_LIGHT_RADIUS,
                 ..default()
             })
         ],
@@ -65,7 +64,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 fn player_movement_input(
-    mut direction: Single<&mut Direction, With<Player>>,
+    mut player: Single<(&mut Direction, &mut FlipSprite, &mut LookingTowards), With<Player>>,
     actions: Single<&ActionState<Action>, With<Player>>,
 ) {
     let mut player_dir = Vec2::ZERO;
@@ -83,16 +82,25 @@ fn player_movement_input(
         player_dir.x -= 1.0;
     }
 
+    let (mut direction, mut flip_sprite, mut looking_towards) = player.into_inner();
+
     direction.0 = player_dir.normalize_or_zero();
+
+    if direction.0 != Vec2::ZERO {
+        looking_towards.0 = direction.0;
+        flip_sprite.0 = true;
+    } else {
+        flip_sprite.0 = false;
+    }
 }
 
 fn player_attack_input(
-    player: Single<(&Direction, &Transform), With<Player>>,
+    player: Single<(&LookingTowards, &Transform), With<Player>>,
     actions: Single<&ActionState<Action>, With<Player>>,
     mut commands: Commands,
+    asset_server: Res<AssetServer>,
 ) {
     if actions.just_pressed(&Action::Attack) {
-        println!("player attacked");
         let (direction, transform) = player.into_inner();
 
         let offset = (PLAYER_SIZE / 2.0 + ATTACK_DISTANCE) * direction.0;
@@ -104,7 +112,7 @@ fn player_attack_input(
             },
             Sprite {
                 custom_size: Some(ATTACK_SIZE),
-                color: Color::Srgba(ORANGE_300),
+                image: asset_server.load("slash.png"),
                 ..default()
             },
             Transform {

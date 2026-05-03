@@ -1,12 +1,10 @@
-use bevy::{color::palettes::tailwind::RED_300, prelude::*};
-use cgdc_gj::TILE_SIZE;
+use bevy::prelude::*;
 
-use crate::{movement::Direction, player::Player};
 
 pub struct CollisionPlugin;
 
 impl Plugin for CollisionPlugin {
-    fn build(&self, app: &mut App) {
+    fn build(&self, _app: &mut App) {
         // app.add_systems(FixedUpdate, player_collisions);
     }
 }

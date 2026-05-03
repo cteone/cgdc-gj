@@ -14,10 +14,12 @@ impl Plugin for AnimatePlugin {
 }
 
 #[derive(Component)]
-pub struct FlipSprite;
+pub struct FlipSprite(pub bool);
 
-fn flip_sprites(mut query: Query<&mut Sprite, With<FlipSprite>>) {
-    for mut sprite in &mut query {
-        sprite.flip_x = !sprite.flip_x;
+fn flip_sprites(mut query: Query<(&mut Sprite, &FlipSprite), With<FlipSprite>>) {
+    for (mut sprite, flip_sprite) in &mut query {
+        if flip_sprite.0 {
+            sprite.flip_x = !sprite.flip_x;
+        }
     }
 }

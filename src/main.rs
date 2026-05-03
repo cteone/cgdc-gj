@@ -22,7 +22,6 @@ mod enemy;
 use enemy::EnemyPlugin;
 
 mod tree;
-use tree::TreePlugin;
 
 mod movement;
 use movement::MovementPlugin;
@@ -45,14 +44,15 @@ use collision::CollisionPlugin;
 mod audio;
 use audio::AudioPlugin;
 
-// mod animation;
-// use animation::AnimationPlugin;
+mod debug;
+use debug::DebugPlugin;
 
 fn main() -> AppExit {
     App::new()
         .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
         .add_plugins((
             SchedulePlugin,
+            DebugPlugin,
             AnimatePlugin,
             AudioPlugin,
             CameraPlugin,
@@ -68,31 +68,3 @@ fn main() -> AppExit {
         ))
         .run()
 }
-
-// fn main() {
-//     App::new()
-//         .add_plugins((DefaultPlugins, Light2dPlugin))
-//         .add_systems(Startup, setup)
-//         .run();
-// }
-//
-// fn setup(mut commands: Commands) {
-//     commands.spawn((Camera2d, Light2d::default()));
-//
-//     commands.spawn(PointLight2d {
-//         intensity: 3.0,
-//         radius: 100.0,
-//         ..default()
-//     });
-//
-//     commands.spawn(AmbientLight2d {
-//         color: Color::BLACK,
-//         brightness: 0.1,
-//     });
-//
-//     commands.spawn(Sprite {
-//         custom_size: Some(CANVAS_SIZE),
-//         color: Color::Srgba(GREEN_300),
-//         ..default()
-//     });
-// }

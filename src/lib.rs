@@ -13,8 +13,12 @@ pub const ENEMY_HEALTH: f32 = 3.0;
 pub const ENEMY_IDLE_SPEED: f32 = 40.0;
 pub const ENEMY_TARGET_SPEED: f32 = 80.0;
 pub const ENEMY_EYESIGHT: f32 = 500.0;
+pub const ENEMY_TRANSITION_DURATION: f32 = 0.5;
 
-pub const LIGHT_RADIUS: f32 = 45.0;
+// pub const PLAYER_LIGHT_RADIUS: f32 = 45.0;
+pub const PLAYER_LIGHT_RADIUS: f32 = 80.0;
+pub const ENEMY_LIGHT_RADIUS: f32 = 6.0;
+pub const ENEMY_LIGHT_OFFSET: Vec2 = Vec2::new(0.0, 9.0);
 
 pub const ATTACK_SIZE: Vec2 = Vec2::new(2.0, 10.0);
 pub const ATTACK_DISTANCE: f32 = 6.0;

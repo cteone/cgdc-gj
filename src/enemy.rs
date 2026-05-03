@@ -1,19 +1,19 @@
-use std::time::Duration;
-
 use bevy::{
-    color::palettes::tailwind::BLUE_400,
     math::bounding::{Aabb2d, RayCast2d},
     prelude::*,
-    time::common_conditions::on_timer,
 };
+use bevy_light_2d::light::PointLight2d;
+use bevy_seedling::sample::SamplePlayer;
 use cgdc_gj::{
-    CANVAS_SIZE, ENEMY_EYESIGHT, ENEMY_HEALTH, ENEMY_HITBOX, ENEMY_TARGET_SPEED, PLAYER_SIZE,
+    ENEMY_EYESIGHT, ENEMY_HEALTH, ENEMY_HITBOX, ENEMY_LIGHT_OFFSET, ENEMY_LIGHT_RADIUS,
+    ENEMY_TARGET_SPEED, ENEMY_TRANSITION_DURATION,
 };
 use rand::Rng;
 
 pub struct EnemyPlugin;
 
 use crate::{
+    animate::FlipSprite,
     collision::Collider,
     movement::{Acceleration, AccelerationDirection, CanMove, Direction, Health, Hitbox, Speed},
     player::Player,
@@ -43,7 +43,8 @@ impl Plugin for EnemyPlugin {
     Health(ENEMY_HEALTH),
     EnemyState,
     Hitbox(ENEMY_HITBOX),
-    CanMove
+    CanMove,
+    FlipSprite(true)
 )]
 pub struct Enemy;
 
@@ -51,6 +52,7 @@ pub struct Enemy;
 pub enum EnemyState {
     Idle,
     Target,
+    IdleToTarget(Timer),
 }
 
 impl Default for EnemyState {
@@ -103,16 +105,44 @@ fn calculate_enemy_direction(
 
                 direction.0 = Vec2::new(x, y).normalize_or_zero() + variance;
             }
+            _ => {}
         }
     }
 }
 
 fn handle_state_change(
-    mut enemies: Query<(&EnemyState, &mut Speed), (Changed<EnemyState>, With<Enemy>)>,
+    mut enemies: Query<(Entity, &mut EnemyState, &mut Speed), With<Enemy>>,
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    time: Res<Time>,
 ) {
-    for (state, mut speed) in &mut enemies {
+    for (entity, mut state, mut speed) in &mut enemies {
         match *state {
             EnemyState::Idle => {}
+            EnemyState::IdleToTarget(ref mut timer) => {
+                if timer.elapsed_secs() == 0.0 {
+                    speed.0 = 0.0;
+                    commands.entity(entity).with_child((
+                        PointLight2d {
+                            radius: ENEMY_LIGHT_RADIUS,
+                            intensity: 10.0,
+                            ..default()
+                        },
+                        Transform::from_xyz(ENEMY_LIGHT_OFFSET.x, ENEMY_LIGHT_OFFSET.y, 1.0),
+                    ));
+                    commands.entity(entity).with_child(SamplePlayer::new(
+                        asset_server.load("enemy_idle_to_target.wav"),
+                    ));
+                }
+                if timer.is_finished() {
+                    commands.entity(entity).with_child(
+                        SamplePlayer::new(asset_server.load("enemy_target.wav")).looping(),
+                    );
+                    *state = EnemyState::Target;
+                } else {
+                    timer.tick(time.delta());
+                }
+            }
             EnemyState::Target => {
                 speed.0 = ENEMY_TARGET_SPEED;
             }
@@ -136,46 +166,46 @@ fn handle_idle(
     let player_collider = Aabb2d::new(player_translation.xy(), player_hitbox.0 / 2.0);
 
     for (entity, mut enemy_state) in &mut enemies {
-        match *enemy_state {
-            EnemyState::Idle => {
-                let enemy_translation = transform_helper
-                    .compute_global_transform(entity)
-                    .unwrap()
-                    .translation();
+        if let EnemyState::Idle = *enemy_state {
+            let enemy_translation = transform_helper
+                .compute_global_transform(entity)
+                .unwrap()
+                .translation();
 
-                let x = player_translation.x - enemy_translation.x;
-                let y = player_translation.y - enemy_translation.y;
+            let x = player_translation.x - enemy_translation.x;
+            let y = player_translation.y - enemy_translation.y;
 
-                let raycast = RayCast2d::new(
-                    enemy_translation.xy(),
-                    Dir2::from_xy(x, y).unwrap(),
-                    ENEMY_EYESIGHT,
-                );
+            let raycast = RayCast2d::new(
+                enemy_translation.xy(),
+                Dir2::from_xy(x, y).unwrap(),
+                ENEMY_EYESIGHT,
+            );
 
-                let player_dist = raycast.aabb_intersection_at(&player_collider);
+            let player_dist = raycast.aabb_intersection_at(&player_collider);
 
-                let collider_dist = colliders
-                    .iter()
-                    .filter_map(|collider| {
-                        let collider = Aabb2d::new(collider.center, collider.size / 2.0);
-                        raycast.aabb_intersection_at(&collider)
-                    })
-                    .min_by(|a, b| a.partial_cmp(b).unwrap());
+            let collider_dist = colliders
+                .iter()
+                .filter_map(|collider| {
+                    let collider = Aabb2d::new(collider.center, collider.size / 2.0);
+                    raycast.aabb_intersection_at(&collider)
+                })
+                .min_by(|a, b| a.partial_cmp(b).unwrap());
 
-                if let Some(player_dist) = player_dist {
-                    match collider_dist {
-                        Some(collider_dist) => {
-                            if collider_dist > player_dist {
-                                *enemy_state = EnemyState::Target;
-                            }
+            if let Some(player_dist) = player_dist {
+                match collider_dist {
+                    Some(collider_dist) => {
+                        if collider_dist > player_dist {
+                            *enemy_state = EnemyState::IdleToTarget(Timer::from_seconds(
+                                ENEMY_TRANSITION_DURATION,
+                                TimerMode::Once,
+                            ));
                         }
-                        None => {
-                            *enemy_state = EnemyState::Target;
-                        }
+                    }
+                    None => {
+                        *enemy_state = EnemyState::Target;
                     }
                 }
             }
-            EnemyState::Target => {}
         }
     }
 }

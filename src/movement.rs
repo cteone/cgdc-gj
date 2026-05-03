@@ -3,12 +3,12 @@ use bevy::{
     math::bounding::{Aabb2d, IntersectsVolume},
     prelude::*,
 };
-use cgdc_gj::{ACCELERATION_DAMPENING_PER_TICK, CANVAS_SIZE, PLAYER_HITBOX};
+use cgdc_gj::{ACCELERATION_DAMPENING_PER_TICK, CANVAS_SIZE};
 
 use crate::{
     collision::Collider,
     player::Player,
-    rooms::{Room, RoomChange, RoomDirection, RoomId, RoomLayouts},
+    rooms::{Room, RoomChange, RoomId, RoomLayouts},
     schedule::InGameSet,
 };
 
@@ -157,7 +157,6 @@ fn check_room_change(
         .find(|room_layout| room_layout.id == source_id)
         .unwrap(); //should exist
 
-    println!("{}", player_location);
     if target_location.x > CANVAS_SIZE.x / 2.0 {
         match source_room.right {
             Some(target_id) => commands.trigger(RoomChange {
@@ -247,66 +246,6 @@ fn move_entities(
         }
     }
 }
-
-// fn move_entities(
-//     mut query: Query<(
-//         Entity,
-//         &mut Transform,
-//         &Speed,
-//         &Direction,
-//         Option<&Acceleration>,
-//         Option<&AccelerationDirection>,
-//     )>,
-//     colliders: Query<&Collider>,
-//     time: Res<Time>,
-//     transform_helper: TransformHelper,
-//     mut gizmos: Gizmos,
-// ) {
-//     for (entity, mut transform, speed, direction, acceleration, acceleration_direction) in
-//         &mut query
-//     {
-//         let entity_transform = transform_helper
-//             .compute_global_transform(entity)
-//             .unwrap()
-//             .translation();
-//
-//         let entity_collider = Aabb2d::new(entity_transform.xy(), PLAYER_HITBOX / 2.0);
-//
-//         gizmos.rect_2d(entity_transform.xy(), PLAYER_HITBOX, RED_300);
-//
-//         let default_acceleration = Acceleration::default();
-//         let default_acceleration_direction = AccelerationDirection::default();
-//
-//         let acceleration = acceleration.unwrap_or(&default_acceleration);
-//         let acceleration_direction =
-//             acceleration_direction.unwrap_or(&default_acceleration_direction);
-//
-//         let target = (
-//             transform.translation.x
-//                 + speed.0 * direction.0.x * time.delta_secs()
-//                 + acceleration.0
-//                     * acceleration_direction.0.x
-//                     * time.delta_secs()
-//                     * time.delta_secs(),
-//             transform.translation.y
-//                 + speed.0 * direction.0.y * time.delta_secs()
-//                 + acceleration.0
-//                     * acceleration_direction.0.y
-//                     * time.delta_secs()
-//                     * time.delta_secs(),
-//         );
-//
-//         let should_move: bool = !colliders.into_iter().any(|collider| {
-//             let collider = Aabb2d::new(collider.center, collider.size / 2.0);
-//             collider.intersects(&entity_collider)
-//         });
-//
-//         if should_move {
-//             transform.translation.x = target.0;
-//             transform.translation.y = target.1;
-//         }
-//     }
-// }
 
 fn dampen_acceleration(mut query: Query<&mut Acceleration>) {
     for mut acceleration in &mut query {

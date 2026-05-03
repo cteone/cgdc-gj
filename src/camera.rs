@@ -1,6 +1,5 @@
 use bevy::{camera::ScalingMode, prelude::*};
 use bevy_light_2d::prelude::*;
-use cgdc_gj::CANVAS_SIZE;
 
 pub struct CameraPlugin;
 
@@ -15,7 +14,7 @@ fn spawn_camera(mut commands: Commands) {
         Camera2d,
         Projection::Orthographic(OrthographicProjection {
             scaling_mode: ScalingMode::WindowSize,
-            scale: 0.8,
+            scale: 0.5,
             ..OrthographicProjection::default_2d()
         }),
         Light2d {
