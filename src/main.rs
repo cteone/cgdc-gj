@@ -30,8 +30,8 @@ use movement::MovementPlugin;
 mod combat;
 use combat::CombatPlugin;
 
-mod debug;
-use debug::DebugPlugin;
+// mod debug;
+// use debug::DebugPlugin;
 
 mod animate;
 use animate::AnimatePlugin;
@@ -42,13 +42,19 @@ use rooms::RoomsPlugin;
 mod collision;
 use collision::CollisionPlugin;
 
+mod audio;
+use audio::AudioPlugin;
+
+mod animation;
+use animation::AnimationPlugin;
+
 fn main() -> AppExit {
     App::new()
         .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
         .add_plugins((
-            DebugPlugin,
             SchedulePlugin,
             AnimatePlugin,
+            AudioPlugin,
             CameraPlugin,
             BackgroundPlugin,
             LightingPlugin,

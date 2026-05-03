@@ -6,6 +6,7 @@ use cgdc_gj::{CANVAS_SIZE, ENEMY_SIZE, TILE_SIZE, TREE_VARIATION};
 use rand::Rng;
 
 use crate::{
+    animate::FlipSprite,
     collision::Collider,
     enemy::{Enemy, EnemyState},
     player::Player,
@@ -229,6 +230,7 @@ fn startup_room(
                     entity_commands.with_child((
                         Enemy,
                         EnemyState::Idle,
+                        FlipSprite,
                         Sprite {
                             image: asset_server.load("enemy.png"),
                             custom_size: Some(Vec2::splat(ENEMY_SIZE)),
@@ -254,6 +256,7 @@ fn startup_room(
                                 Sprite {
                                     custom_size: Some(Vec2::splat(TILE_SIZE)),
                                     image: asset_server.load("tree.png"),
+                                    flip_y: rng.random_bool(0.5),
                                     ..default()
                                 },
                                 Transform::from_xyz(
@@ -267,6 +270,7 @@ fn startup_room(
                                 Sprite {
                                     custom_size: Some(Vec2::splat(TILE_SIZE)),
                                     image: asset_server.load("tree.png"),
+                                    flip_y: rng.random_bool(0.5),
                                     ..default()
                                 },
                                 Transform::from_xyz(
